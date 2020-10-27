@@ -192,6 +192,52 @@ Scenario 5 - iPXE boot to NFS root volume
     - Kernel and ramdisk utilized support the
       `nfsroot kernel command line option`_.
 
+Scenario 6 - PXE boot from iSCSI volume
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  Scenario involves use of a kernel and ramdisk image which cached from
+  partition user image and hosted by the conductor host in order to enable
+  the node to boot initrd via PXE with sufficient command line parameters to
+  enable the root volume to attach during the initrd boot sequence.
+
+  Conditions:
+    - Node boot defaults to network booting via PXE controlled by the
+      ironic conductor.
+    - Metadata service use is expected as configuration drive
+      support is not feasible at this time.
+    - Configuration drive is not supported.
+        - For context: This is a limitation as a result of the minimum
+          new volume and new volume extension sizes in cinder. This may
+          be a capability at a later point in time, but is out of scope
+          for an initial implementation.
+    - Operating system is already deployed to the intended iSCSI boot
+      volume via Glance image download. The user image should be partition
+      image which built with iscsi-boot element, e.g. disk-image-create -o
+      $IMAGE_NAME-volume-boot $DISTRO baremetal dhcp-all-interfaces
+      iscsi-boot devuser
+    - Tenant network isolation is unsupported due to the need for PXE boot.
+        - Potentially in the future, a framework or proxy could be created to
+          enable tenant network isolation, however that is considered out of
+          scope at this time.
+    - Node is configured by the operator with the
+      ``node.properties['capabilities']`` setting of ``iscsi_boot``
+      set to a value of ``true`` for node validation to succeed.
+    - Node has a defined volume target with a ``boot_index``
+      value of ``0`` in the volume_targets table.
+    - Kernel and ramdisk utilized support the
+      `Dracut iSCSI kernel command line option`_ and
+      `Initramfs iSCSI kernel command line option`_.
+
+  Requirements:
+    - Storage driver interface
+        - A storage driver/provider interface is needed in order to support
+          recovery of systems in the event of a failure or change in hardware
+          configuration.
+    - PXE template and generation logic changes.
+    - Implementation of substrate logic in the deploy and PXE driver modules
+      to appropriately handle booting a node in a boot from volume scenario.
+    - User image source metadata in order to cache kernel and initrd.
+
 Potential future capabilities
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -293,8 +339,8 @@ for boot from volume, we propose the following:
            the storage interface.
 
   - Updating of the ``pxe.PXEBoot`` driver logic to support the creation of
-    the appropriate iPXE configurations for booting from the various boot
-    scenarios if the ``volume_target`` information is defined, iPXE is
+    the appropriate iPXE/PXE configurations for booting from the various boot
+    scenarios if the ``volume_target`` information is defined, iPXE/PXE is
     enabled, and a storage provider is available.
 
   - Updating of the ``pxe.PXEBoot`` validate interface to leverage a helper
@@ -324,10 +370,12 @@ for boot from volume, we propose the following:
           interaction, a notification shall be generated to allow
           visibility into if the process is successfully completed.
 
-  - Updating the iPXE template logic to support the creation of
-    the various file formats required for Scenarios 1, 2, 5.  See:
-    `IPXE sanhook command`_, `IPXE san connection URLs`_ and
-    `nfsroot kernel command line option`_.
+  - Updating the iPXE/PXE template logic to support the creation of
+    the various file formats required for Scenarios 1, 2, 5, 6.  See:
+    `IPXE sanhook command`_, `IPXE san connection URLs`_,
+    `nfsroot kernel command line option`_,
+    `Dracut iSCSI kernel command line option`_ and
+    `Initramfs iSCSI kernel command line option`_.
 
 As previously noted, each scenario will be submitted separately as
 incremental additions to ironic.
@@ -630,3 +678,5 @@ Mitaka midcycle etherpad:
 .. _`ironic mitaka midcycle`: https://etherpad.openstack.org/p/ironic-mitaka-midcycle
 .. _`nfsroot kernel command line option`: https://www.kernel.org/doc/Documentation/filesystems/nfs/nfsroot.txt
 .. _`Root device hints`: https://specs.openstack.org/openstack/ironic-specs/specs/kilo-implemented/root-device-hints.html
+.. _`Dracut iSCSI kernel command line option`: https://man7.org/linux/man-pages/man7/dracut.cmdline.7.html
+.. _`Initramfs iSCSI kernel command line option`: https://salsa.debian.org/linux-blocks-team/open-iscsi/-/blob/master/debian/extra/initramfs.local-top#L248
